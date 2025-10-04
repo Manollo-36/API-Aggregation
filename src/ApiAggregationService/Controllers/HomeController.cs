@@ -9,7 +9,7 @@ namespace ApiAggregationService.Controllers
         [HttpGet]
         public IActionResult Get()
         {
-            return Ok("API Aggregation Service is running. Use /api/aggregation/aggregated-data for data.");
+            return Ok("API Aggregation Service is running. Use /api/aggregation?latitude=<ENTER LATITUDE>&longitude=<ENTER LONGITUDE> for data.");
         }
     }
 }
