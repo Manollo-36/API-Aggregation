@@ -1,68 +1,64 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using ApiAggregationService.Services;
 using Xunit;
+using ApiAggregationService.Services;
 
 namespace ApiAggregationService.Tests
 {
-    public class StatisticsServiceTests
+    public class ApiStatisticsServiceTests
     {
-        private readonly StatisticsService _statisticsService;
-
-        public StatisticsServiceTests()
+        [Fact]
+        public void LogsSingleRequestCorrectly()
         {
-            _statisticsService = new StatisticsService();
+            var svc = new ApiStatisticsService();
+            svc.LogApiRequest("Weather", 123);
+
+            var stat = svc.GetAllStats().FirstOrDefault(s => s.ApiName == "Weather");
+            Assert.NotNull(stat);
+            Assert.Equal(1, stat.TotalRequests);
+            Assert.Equal(123, stat.AverageResponseTimeMs);
         }
 
         [Fact]
-        public void TrackRequest_ShouldIncrementCount()
+        public void CalculatesAverageForMultipleRequests()
         {
-            // Arrange
-            var initialCount = _statisticsService.GetRequestCount();
+            var svc = new ApiStatisticsService();
+            svc.LogApiRequest("News", 100);
+            svc.LogApiRequest("News", 200);
+            svc.LogApiRequest("News", 300);
 
-            // Act
-            _statisticsService.TrackRequest();
-
-            // Assert
-            Assert.Equal(initialCount + 1, _statisticsService.GetRequestCount());
+            var stat = svc.GetAllStats().FirstOrDefault(s => s.ApiName == "News");
+            Assert.NotNull(stat);
+            Assert.Equal(3, stat.TotalRequests);
+            Assert.Equal(200, stat.AverageResponseTimeMs);
         }
 
         [Fact]
-        public void TrackRequest_ShouldRecordElapsedTime()
+        public void BucketsRequestsCorrectly()
         {
-            // Arrange
-            var stopwatch = Stopwatch.StartNew();
+            var svc = new ApiStatisticsService();
+            svc.LogApiRequest("Crypto", 50);   // fast
+            svc.LogApiRequest("Crypto", 99);   // fast
+            svc.LogApiRequest("Crypto", 100);  // average
+            svc.LogApiRequest("Crypto", 150);  // average
+            svc.LogApiRequest("Crypto", 200);  // slow
+            svc.LogApiRequest("Crypto", 300);  // slow
 
-            // Act
-            _statisticsService.TrackRequest();
-            stopwatch.Stop();
+            var stat = svc.GetAllStats().FirstOrDefault(s => s.ApiName == "Crypto");
+            Assert.NotNull(stat);
+            Assert.Equal(6, stat.TotalRequests);
 
-            // Assert
-            var elapsedTime = stopwatch.ElapsedMilliseconds;
-            var recordedTime = _statisticsService.GetAverageResponseTime();
-
-            Assert.True(recordedTime >= 0);
-            Assert.True(recordedTime <= elapsedTime);
+            Assert.Equal(2, stat.PerformanceBuckets["fast (<100ms)"]);
+            Assert.Equal(2, stat.PerformanceBuckets["average (100-200ms)"]);
+            Assert.Equal(2, stat.PerformanceBuckets["slow (>=200ms)"]);
         }
 
         [Fact]
-        public void GetStatistics_ShouldReturnCorrectMetrics()
+        public void ReturnsEmptyStatsWhenNoRequests()
         {
-            // Arrange
-            for (int i = 0; i < 5; i++)
-            {
-                _statisticsService.TrackRequest();
-            }
-
-            // Act
-            var stats = _statisticsService.GetStatistics();
-
-            // Assert
-            Assert.Equal(5, stats.RequestCount);
-            Assert.True(stats.AverageResponseTime >= 0);
+            var svc = new ApiStatisticsService();
+            var stat = svc.GetAllStats().FirstOrDefault(s => s.ApiName == "MissingApi");
+            Assert.Null(stat);
         }
     }
 }
