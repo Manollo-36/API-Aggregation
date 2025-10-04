@@ -7,9 +7,9 @@ namespace ApiAggregationService.Controllers
     [Route("api/[controller]")]
     public class StatisticsController : ControllerBase
     {
-        private readonly StatisticsService _statisticsService;
+        private readonly ApiStatisticsService _statisticsService;
 
-        public StatisticsController(StatisticsService statisticsService)
+        public StatisticsController(ApiStatisticsService statisticsService)
         {
             _statisticsService = statisticsService;
         }
@@ -18,7 +18,7 @@ namespace ApiAggregationService.Controllers
         [Route("GetStatistics")]
         public IActionResult GetStatistics()
         {
-            var statistics = _statisticsService.GetStatistics();
+            var statistics = _statisticsService.GetAllStats();
             return Ok(statistics);
         }
     }

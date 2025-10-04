@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Moq;
 using Newtonsoft.Json;
 using Xunit;
-using ApiAggregationService.Interfaces;
 using ApiAggregationService.Models;
 using ApiAggregationService.Services;
 using Microsoft.Extensions.Caching.Memory;
@@ -37,10 +36,10 @@ namespace ApiAggregationService.Tests
                 "http://api3.com/weather"
             };
 
-            var mockResponse = new List<AggregatedWeatherData>
+            var mockResponse = new List<AggregatedWeatherData.Main >
             {
-                new AggregatedWeatherData { Temperature = 20, Humidity = 50 },
-                new AggregatedWeatherData { Temperature = 25, Humidity = 60 }
+                new AggregatedWeatherData.Main { temp = 20, humidity = 50 },
+                new AggregatedWeatherData.Main { temp = 25, humidity = 60 }
             };
 
             _httpClientMock.Setup(client => client.GetStringAsync(It.IsAny<string>()))
@@ -51,8 +50,8 @@ namespace ApiAggregationService.Tests
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(22.5, result.First().Temperature);
-            Assert.Equal(55, result.First().Humidity);
+            Assert.Equal(22.5, result.First().main.temp);
+            Assert.Equal(55, result.First().main.humidity);
         }
 
         [Fact]
@@ -65,16 +64,16 @@ namespace ApiAggregationService.Tests
                 "http://api2.com/weather"
             };
 
-            var mockResponse = new List<AggregatedWeatherData>
+            var mockResponse = new List<AggregatedWeatherData.Main>
             {
-                new AggregatedWeatherData { Temperature = 20, Humidity = 50 },
-                new AggregatedWeatherData { Temperature = 30, Humidity = 70 }
+                new AggregatedWeatherData.Main { temp = 20, humidity = 50 },
+                new AggregatedWeatherData.Main { temp = 30, humidity = 70 }
             };
 
             _httpClientMock.Setup(client => client.GetStringAsync(It.IsAny<string>()))
                 .ReturnsAsync(JsonConvert.SerializeObject(mockResponse));
 
-            Func<AggregatedWeatherData, bool> filter = data => data.Temperature > 25;
+            Func<AggregatedWeatherData, bool> filter = data => data.main.temp > 25;
 
             // Act
             var result = await _aggregationService.GetAggregatedWeatherDataAsync(apiUrls, filter);
@@ -82,7 +81,7 @@ namespace ApiAggregationService.Tests
             // Assert
             Assert.NotNull(result);
             Assert.Single(result);
-            Assert.Equal(30, result.First().Temperature);
+            Assert.Equal(30, result.First().main.temp);
         }
 
         [Fact]

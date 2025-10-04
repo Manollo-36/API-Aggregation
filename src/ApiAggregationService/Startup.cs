@@ -13,12 +13,14 @@ namespace ApiAggregationService
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddHttpClient<IAggregationService, AggregationService>();
-            services.AddSingleton<StatisticsService>();
+            services.AddMemoryCache();
+            services.AddSingleton<ApiStatisticsService>();
             services.AddControllers();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
-        {
+        {       
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

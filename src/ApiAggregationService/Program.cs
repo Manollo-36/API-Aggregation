@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using ApiAggregationService;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 
 public class Program
 {
@@ -13,6 +15,11 @@ public class Program
         Host.CreateDefaultBuilder(args)
             .ConfigureWebHostDefaults(webBuilder =>
             {
+                webBuilder.ConfigureAppConfiguration((hostingContext, config) =>
+                {
+                    config.AddJsonFile("ApiAggregationService/appsettings.json", optional: false, reloadOnChange: true);
+                });
                 webBuilder.UseStartup<Startup>();
             });
 }
+
