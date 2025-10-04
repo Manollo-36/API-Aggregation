@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/bin/Debug/net9.0/ApiAggregationService.dll",
+            "program": "${workspaceFolder}/src/ApiAggregationService/bin/Debug/net9.0/ApiAggregationService.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src",
             "stopAtEntry": false,

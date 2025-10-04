@@ -7,9 +7,10 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/src/ApiAggregationService.csproj"
+                "${workspaceFolder}/src/ApiAggregationService/ApiAggregationService.csproj"
             ],
             "problemMatcher": "$msCompile"
         }
-    ]
+    ],
+    "group": "build"
 }

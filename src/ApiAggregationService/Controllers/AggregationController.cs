@@ -25,7 +25,7 @@ namespace ApiAggregationService.Controllers
         }
       
         [HttpGet]
-        public async Task<ActionResult<AggregatedWeatherData>> GetAggregatedData(
+        public async Task<ActionResult<IEnumerable<AggregatedWeatherData>>> GetAggregatedData(
             [FromQuery] double latitude,
             [FromQuery] double longitude,
             [FromQuery] string filter = null,
@@ -33,50 +33,45 @@ namespace ApiAggregationService.Controllers
         {
             try
             {
-                string openWeatherApiKey = _configuration.GetValue<string>("WeatherApi:OpenWeatherApiKey");
-                string weatherStackApiKey = _configuration.GetValue<string>("WeatherApi2:WeatherStackApiKey");
+                // Get API keys from configuration
+                string openWeatherApiKey = _configuration["WeatherApi:OpenWeatherApiKey"];
+                string weatherStackApiKey = _configuration["WeatherApi2:WeatherStackApiKey"];
 
-                var openWeatherUrl = $"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={openWeatherApiKey}&units=metric";
-                var openMeteoUrl = $"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current_weather=true";
-                var weatherStackUrl = $"http://api.weatherstack.com/current?access_key={weatherStackApiKey}&query={latitude},{longitude}";
-
-                using var httpClient = new HttpClient();
-
-                // Start all requests simultaneously
-                var openWeatherTask = httpClient.GetStringAsync(openWeatherUrl);
-                var openMeteoTask = httpClient.GetStringAsync(openMeteoUrl);
-                var weatherStackTask = httpClient.GetStringAsync(weatherStackUrl);
-
-                await Task.WhenAll(openWeatherTask, openMeteoTask, weatherStackTask);
-
-                // Parse responses
-                var openWeatherData =  JsonConvert.DeserializeObject<AggregatedWeatherData>(openWeatherTask.Result);
-                var openMeteoData = JsonConvert.DeserializeObject<AggregatedWeatherData>(openMeteoTask.Result);
-                var weatherStackData = JsonConvert.DeserializeObject<AggregatedWeatherData>(weatherStackTask.Result);
-
-                var aggregatedList = new List<AggregatedWeatherData>
+                // Build API URLs
+                var apiUrls = new List<string>
                 {
-                    openWeatherData,
-                    openMeteoData,
-                    weatherStackData
+                    $"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={openWeatherApiKey}&units=metric",
+                    $"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current_weather=true",
+                    $"http://api.weatherstack.com/current?access_key={weatherStackApiKey}&query={latitude},{longitude}"
                 };
 
-                // Optional: Apply filter and sorting
+                // Define filter function if provided
+                Func<AggregatedWeatherData, bool> filterFunc = null;
                 if (!string.IsNullOrEmpty(filter) && double.TryParse(filter, out double filterValue))
                 {
-                    aggregatedList = aggregatedList.Where(d => d.main.temp > filterValue).ToList();
+                    filterFunc = data => data.main?.temp > filterValue || 
+                                        data.current_weather?.temperature > filterValue || 
+                                        data.current?.temperature > filterValue;
                 }
 
+                // Define sort function if provided
+                Func<IEnumerable<AggregatedWeatherData>, IOrderedEnumerable<AggregatedWeatherData>> sortFunc = null;
                 if (!string.IsNullOrEmpty(sort))
                 {
-                    aggregatedList = sort == "asc"
-                        ? aggregatedList.OrderBy(d => d.main.temp).ToList()
-                        : aggregatedList.OrderByDescending(d => d.main.temp).ToList();
+                    if (sort.ToLower() == "asc")
+                    {
+                        sortFunc = data => data.OrderBy(d => d.main?.temp ?? d.current_weather?.temperature ?? d.current?.temperature ?? 0);
+                    }
+                    else if (sort.ToLower() == "desc")
+                    {
+                        sortFunc = data => data.OrderByDescending(d => d.main?.temp ?? d.current_weather?.temperature ?? d.current?.temperature ?? 0);
+                    }
                 }
 
-                // returning the first as an example
-                return Ok(aggregatedList);
+                // Use the service to get aggregated data
+                var result = await _aggregationService.GetAggregatedWeatherDataAsync(apiUrls, filterFunc, sortFunc);
 
+                return Ok(result);
             }
             catch (Exception ex)
             {

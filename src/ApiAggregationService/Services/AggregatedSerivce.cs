@@ -58,7 +58,12 @@ namespace ApiAggregationService.Services
             try
             {
                 var response = await _httpClient.GetStringAsync(apiUrl);
-                return JsonConvert.DeserializeObject<IEnumerable<AggregatedWeatherData>>(response);
+                
+                // Deserialize as a single object, then wrap in a collection
+                var singleResult = JsonConvert.DeserializeObject<AggregatedWeatherData>(response);
+                
+                // Return as a single-item collection
+                return new List<AggregatedWeatherData> { singleResult };
             }
             catch (HttpRequestException ex)
             {
