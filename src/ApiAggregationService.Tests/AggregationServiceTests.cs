@@ -21,6 +21,13 @@ using Microsoft.AspNetCore.Hosting;
 
 public class AggregationServiceTests
 {
+    private Mock<IApiStatisticsService> CreateMockStatisticsService()
+    {
+        var mockStatisticsService = new Mock<IApiStatisticsService>();
+        mockStatisticsService.Setup(s => s.LogApiRequest(It.IsAny<string>(), It.IsAny<double>()));
+        return mockStatisticsService;
+    }
+
     #region Service Tests
 
     [Fact]
@@ -46,7 +53,8 @@ public class AggregationServiceTests
 
         var httpClient = new HttpClient(handlerMock.Object);
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new AggregationService(httpClient, memoryCache);
+        var mockStatisticsService = CreateMockStatisticsService();
+        var service = new AggregationService(httpClient, memoryCache, mockStatisticsService.Object);
 
         var apiUrls = new List<string> { "http://fakeapi.com/weather" };
 
@@ -58,6 +66,9 @@ public class AggregationServiceTests
         Assert.Single(result);
         Assert.Equal(20, result.First().main.temp);
         Assert.Equal(50, result.First().main.humidity);
+        
+        // Verify statistics were logged
+        mockStatisticsService.Verify(s => s.LogApiRequest(It.IsAny<string>(), It.IsAny<double>()), Times.Once);
     }
 
     [Fact]
@@ -74,7 +85,8 @@ public class AggregationServiceTests
 
         var httpClient = new HttpClient(handlerMock.Object);
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new AggregationService(httpClient, memoryCache);
+        var mockStatisticsService = CreateMockStatisticsService();
+        var service = new AggregationService(httpClient, memoryCache, mockStatisticsService.Object);
 
         var apiUrls = new List<string> { "http://fakeapi.com/weather" };
 
@@ -101,7 +113,8 @@ public class AggregationServiceTests
 
         var httpClient = new HttpClient(handlerMock.Object);
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new AggregationService(httpClient, memoryCache);
+        var mockStatisticsService = CreateMockStatisticsService();
+        var service = new AggregationService(httpClient, memoryCache, mockStatisticsService.Object);
 
         var apiUrls = new List<string> { "http://fakeapi.com/weather" };
 
@@ -142,7 +155,8 @@ public class AggregationServiceTests
 
         var httpClient = new HttpClient(handlerMock.Object);
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new AggregationService(httpClient, memoryCache);
+        var mockStatisticsService = CreateMockStatisticsService();
+        var service = new AggregationService(httpClient, memoryCache, mockStatisticsService.Object);
 
         var apiUrls = new List<string> { "http://api1.com/weather", "http://api2.com/weather" };
         Func<AggregatedWeatherData, bool> filter = data => data.main.temp > 20;
@@ -188,7 +202,8 @@ public class AggregationServiceTests
 
         var httpClient = new HttpClient(handlerMock.Object);
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new AggregationService(httpClient, memoryCache);
+        var mockStatisticsService = CreateMockStatisticsService();
+        var service = new AggregationService(httpClient, memoryCache, mockStatisticsService.Object);
 
         var apiUrls = new List<string> { "http://api1.com/weather", "http://api2.com/weather" };
         Func<IEnumerable<AggregatedWeatherData>, IOrderedEnumerable<AggregatedWeatherData>> orderBy =
@@ -401,7 +416,8 @@ public class AggregationServiceTests
         // Arrange
         var httpClient = new HttpClient();
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new AggregationService(httpClient, memoryCache);
+        var mockStatisticsService = CreateMockStatisticsService();
+        var service = new AggregationService(httpClient, memoryCache, mockStatisticsService.Object);
 
         var apiUrls = new List<string>();
 
