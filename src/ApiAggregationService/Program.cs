@@ -9,56 +9,52 @@ using ApiAggregationService.Middleware;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Http;
 
- 
-        var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
-        //Load configuration from appsettings.json
-        builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-        builder.Configuration.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true);
+// Add services to the container
+builder.Services.AddControllers()
+    .AddNewtonsoftJson();
 
-        // Add services to the container
-        builder.Services.AddControllers()
-            .AddNewtonsoftJson();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
 
-        builder.Services.AddMemoryCache();
-        builder.Services.AddHttpClient();
+// Register your services
+builder.Services.AddScoped<IAggregationService, AggregationService>();
+builder.Services.AddSingleton<IApiStatisticsService, ApiStatisticsService>(); // Add this line
 
-        // Register your services
-        builder.Services.AddScoped<IAggregationService, AggregationService>();
+// Add Swagger/OpenAPI
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-        // Add Swagger/OpenAPI
-        builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
+// Configure HTTPS redirection
+builder.Services.AddHttpsRedirection(options =>
+{
+    options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
+    options.HttpsPort = 5001; // Set your HTTPS port
+});
 
-        // Configure HTTPS redirection
-        builder.Services.AddHttpsRedirection(options =>
-        {
-            options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
-            options.HttpsPort = 5001; // Set your HTTPS port
-        });
+var app = builder.Build();
 
-        var app = builder.Build();
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
-        // Configure the HTTP request pipeline
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseSwagger();
-            app.UseSwaggerUI();
-        }
+// Add error handling middleware
+app.UseMiddleware<ErrorHandlingMiddleware>();
 
-        // Add error handling middleware
-        app.UseMiddleware<ErrorHandlingMiddleware>();
+// Only use HTTPS redirection in production, or configure it properly
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
-        // Only use HTTPS redirection in production, or configure it properly
-        if (!app.Environment.IsDevelopment())
-        {
-            app.UseHttpsRedirection();
-        }
+app.UseAuthorization();
+app.MapControllers();
 
-        app.UseAuthorization();
-        app.MapControllers();
+app.Run();
 
-        app.Run();
-    
-    // Expose the Program class for integration testing
-    public partial class Program { }
+// Expose the Program class for integration testing
+public partial class Program { }
