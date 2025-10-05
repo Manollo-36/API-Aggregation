@@ -1,7 +1,7 @@
 # API Aggregation Service Documentation
 
 ## Overview
-The API Aggregation Service is a .NET 9.0 web API that fetches weather data from multiple external weather APIs simultaneously and provides aggregated results. The service supports filtering, sorting, and caching for improved performance.
+The API Aggregation Service is a .NET 9.0 web API that fetches weather data from multiple external weather APIs simultaneously and provides aggregated results. The service supports filtering, sorting, caching, and request statistics tracking for improved performance and monitoring.
 
 ## Table of Contents
 1. [Setup and Configuration](#setup-and-configuration)
@@ -13,8 +13,9 @@ The API Aggregation Service is a .NET 9.0 web API that fetches weather data from
 7. [Running the Application](#running-the-application)
 8. [Testing](#testing)
 9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting](#troubleshooting)
-11. [Security Considerations](#security-considerations)
+10. [Request Statistics](#request-statistics)
+11. [Troubleshooting](#troubleshooting)
+12. [Security Considerations](#security-considerations)
 
 ## Setup and Configuration
 
@@ -107,6 +108,36 @@ GET /api/aggregation?latitude=40.7128&longitude=-74.0060&sort=asc
 GET /api/aggregation?latitude=40.7128&longitude=-74.0060&filter=15&sort=desc
 ```
 
+### 3. Statistics Endpoints
+
+#### `GET /api/statistics`
+Returns performance statistics for all external APIs.
+
+**Response:**
+```json
+[
+  {
+    "apiName": "OpenWeatherMap",
+    "totalRequests": 15,
+    "averageResponseTimeMs": 142.5,
+    "performanceBuckets": {
+      "fast": 5,    // < 100ms
+      "average": 7, // 100-200ms  
+      "slow": 3     // > 200ms
+    }
+  }
+]
+```
+
+#### `GET /api/statistics/{apiName}`
+Returns statistics for a specific API by name.
+
+**Parameters:**
+- `apiName`: Name of the API (e.g., "OpenWeatherMap", "OpenMeteo", "WeatherStack")
+
+#### `DELETE /api/statistics`
+Clears all collected statistics.
+
 ## Input/Output Formats
 
 ### Input Format
@@ -153,6 +184,14 @@ All inputs are provided as query parameters in the URL. No request body is requi
 }
 ```
 
+#### 401 Unauthorized Response
+```json
+{
+  "message": "One or more API keys are invalid or have expired.",
+  "error": "Response status code does not indicate success: 401 (Unauthorized)"
+}
+```
+
 ### Data Model Structure
 
 #### AggregatedWeatherData
@@ -184,6 +223,24 @@ public class AggregatedWeatherData
 }
 ```
 
+#### ApiStatistics
+```csharp
+public class ApiStatistics
+{
+    public string ApiName { get; set; }
+    public int TotalRequests { get; set; }
+    public double AverageResponseTimeMs { get; set; }
+    public PerformanceBuckets PerformanceBuckets { get; set; }
+}
+
+public class PerformanceBuckets
+{
+    public int Fast { get; set; }      // < 100ms
+    public int Average { get; set; }   // 100-200ms
+    public int Slow { get; set; }      // > 200ms
+}
+```
+
 ## Configuration
 
 ### External APIs Used
@@ -191,19 +248,22 @@ public class AggregatedWeatherData
    - Endpoint: `https://api.openweathermap.org/data/2.5/weather`
    - Returns data in `main` property
    - Requires API key
+   - Rate limit: 1,000 calls/day (free tier)
 
 2. **Open-Meteo API** (Free, no key required)
    - Endpoint: `https://api.open-meteo.com/v1/forecast`
    - Returns data in `current_weather` property
+   - No rate limits
 
 3. **WeatherStack API**
    - Endpoint: `http://api.weatherstack.com/current`
    - Returns data in `current` property
    - Requires API key
+   - Rate limit: 1,000 calls/month (free tier)
 
 ### Caching
 - **Duration**: 60 seconds (configurable in `appsettings.json`)
-- **Cache Key**: Based on API URLs
+- **Cache Key**: Based on API URLs and coordinates
 - **Implementation**: In-memory caching using `IMemoryCache`
 
 ### Middleware
@@ -214,11 +274,12 @@ public class AggregatedWeatherData
 ## Error Handling
 
 ### Common Errors
-1. **Invalid Coordinates**: Latitude/longitude out of valid range
-2. **API Key Missing**: One or more required API keys not configured
-3. **Network Errors**: External API unavailable or timeout
-4. **Invalid JSON**: Malformed response from external API
-5. **Rate Limiting**: External API rate limits exceeded
+1. **Invalid Coordinates**: Latitude/longitude out of valid range (400 Bad Request)
+2. **API Key Missing**: One or more required API keys not configured (500 Internal Server Error)
+3. **API Key Invalid**: External API returns 401 Unauthorized
+4. **Network Errors**: External API unavailable or timeout (502 Bad Gateway)
+5. **Invalid JSON**: Malformed response from external API (500 Internal Server Error)
+6. **Rate Limiting**: External API rate limits exceeded (429 Too Many Requests)
 
 ### Error Response Format
 All errors return a consistent JSON structure:
@@ -242,11 +303,16 @@ All errors return a consistent JSON structure:
 - `IMemoryCache` for caching responses
 - `IConfiguration` for settings management
 - `ILogger` for logging
+- `IApiStatisticsService` for request statistics tracking
 
 ## Running the Application
 
 ### Development Mode
 ```bash
+# Navigate to project directory
+cd "src/ApiAggregationService"
+
+# Run the application
 dotnet run
 ```
 
@@ -269,10 +335,10 @@ EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["ApiAggregationService.csproj", "."]
-RUN dotnet restore "ApiAggregationService.csproj"
-COPY . .
-WORKDIR "/src"
+COPY ["src/ApiAggregationService/ApiAggregationService.csproj", "ApiAggregationService/"]
+RUN dotnet restore "ApiAggregationService/ApiAggregationService.csproj"
+COPY src/ApiAggregationService/ ApiAggregationService/
+WORKDIR "/src/ApiAggregationService"
 RUN dotnet build "ApiAggregationService.csproj" -c Release -o /app/build
 
 FROM build AS publish
@@ -286,6 +352,7 @@ ENTRYPOINT ["dotnet", "ApiAggregationService.dll"]
 
 Build and run:
 ```bash
+# From the root directory
 docker build -t api-aggregation-service .
 docker run -p 8080:80 api-aggregation-service
 ```
@@ -294,14 +361,14 @@ docker run -p 8080:80 api-aggregation-service
 
 ### Running Unit Tests
 ```bash
-cd ../ApiAggregationService.Tests
+cd "src/ApiAggregationService.Tests"
 dotnet test
 ```
 
 ### Test Coverage
 The test suite includes:
-- Unit tests for service layer
-- Controller integration tests
+- Unit tests for service layer (AggregationService, ApiStatisticsService)
+- Controller integration tests (AggregationController, StatisticsController)
 - Model validation tests
 - Error handling tests
 - Edge case scenarios
@@ -321,6 +388,12 @@ curl -X GET "https://localhost:5001/api/aggregation?latitude=40.7128&longitude=-
 
 # Test with filtering and sorting
 curl -X GET "https://localhost:5001/api/aggregation?latitude=40.7128&longitude=-74.0060&filter=20&sort=asc"
+
+# Test statistics endpoint
+curl -X GET "https://localhost:5001/api/statistics"
+
+# Clear statistics
+curl -X DELETE "https://localhost:5001/api/statistics"
 ```
 
 ## Performance Considerations
@@ -339,6 +412,24 @@ curl -X GET "https://localhost:5001/api/aggregation?latitude=40.7128&longitude=-
 - Consider upgrading to paid tiers for higher limits
 - Monitor API usage to avoid unexpected charges
 
+## Request Statistics
+
+The service automatically tracks performance statistics for all external API calls:
+
+### Performance Buckets
+- **Fast**: Response time < 100ms
+- **Average**: Response time 100-200ms
+- **Slow**: Response time > 200ms
+
+### Metrics Collected
+- Total number of requests per API
+- Average response time per API
+- Request distribution across performance buckets
+- Success/failure rates
+
+### Accessing Statistics
+Use the `/api/statistics` endpoints to view performance data and monitor API health.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -350,15 +441,24 @@ curl -X GET "https://localhost:5001/api/aggregation?latitude=40.7128&longitude=-
    - Verify API keys are correctly set in appsettings.json
    - Check for typos in configuration section names
 
-3. **Network timeout errors**
+3. **"Configuration file not found" errors**
+   - Ensure you're running from the correct directory: `src/ApiAggregationService`
+   - Verify appsettings.json exists in the project directory
+
+4. **Network timeout errors**
    - Check internet connectivity
    - Verify external API endpoints are accessible
    - Consider increasing HttpClient timeout
 
-4. **JSON deserialization errors**
+5. **JSON deserialization errors**
    - External API response format may have changed
    - Check API documentation for updates
    - Verify response content in logs
+
+6. **401 Unauthorized errors**
+   - Verify API keys are valid and active
+   - Check if API keys have expired
+   - Ensure proper API key format
 
 ### Logging
 Enable detailed logging by modifying `appsettings.json`:
@@ -373,12 +473,35 @@ Enable detailed logging by modifying `appsettings.json`:
 }
 ```
 
+### Directory Structure
+Ensure your project structure matches:
+```
+API Aggregation/
+├── src/
+│   ├── ApiAggregationService.sln
+│   ├── ApiAggregationService/
+│   │   ├── Program.cs
+│   │   ├── appsettings.json          ← Must be here
+│   │   ├── ApiAggregationService.csproj
+│   │   ├── Controllers/
+│   │   ├── Services/
+│   │   ├── Models/
+│   │   └── Interfaces/
+│   └── ApiAggregationService.Tests/
+│       └── ...
+└── README.md
+```
+
 ## Security Considerations
 
 1. **API Key Security**
    - Store API keys in environment variables or secure configuration
    - Never commit API keys to source control
-   - Use user secrets in development: `dotnet user-secrets set "WeatherApi:OpenWeatherApiKey" "your-key"`
+   - Use user secrets in development: 
+     ```bash
+     dotnet user-secrets set "WeatherApi:OpenWeatherApiKey" "your-key"
+     dotnet user-secrets set "WeatherApi2:WeatherStackApiKey" "your-key"
+     ```
 
 2. **HTTPS**
    - Always use HTTPS in production
@@ -392,6 +515,31 @@ Enable detailed logging by modifying `appsettings.json`:
    - Validate latitude/longitude ranges
    - Sanitize filter and sort parameters
 
+5. **Error Information Disclosure**
+   - Avoid exposing sensitive information in error messages
+   - Log detailed errors server-side only
+
 ## Support and Contributing
 
 For issues, questions, or contributions, please refer to the project repository or contact the development team.
+
+### Quick Start Checklist
+
+- [ ] Install .NET 9.0 SDK
+- [ ] Clone the repository
+- [ ] Navigate to `src/ApiAggregationService`
+- [ ] Create `appsettings.json` with your API keys
+- [ ] Run `dotnet restore`
+- [ ] Run `dotnet build`
+- [ ] Run `dotnet run`
+- [ ] Test at `https://localhost:5001/swagger`
+
+### Example API Keys Setup
+
+```bash
+# Using user secrets (recommended for development)
+cd "src/ApiAggregationService"
+dotnet user-secrets init
+dotnet user-secrets set "WeatherApi:OpenWeatherApiKey" "your_openweather_key"
+dotnet user-secrets set "WeatherApi2:WeatherStackApiKey" "your_weatherstack_key"
+```
