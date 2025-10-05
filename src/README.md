@@ -76,12 +76,12 @@ Returns a simple health check message.
 
 **Response:**
 ```json
-"API Aggregation Service is running. Use /api/aggregation/aggregated-data for data."
+"API Aggregation Service is running. Use /api/aggregation?latitude=<ENTER LATITUDE>&longitude=<ENTER LONGITUDE> for data."
 ```
 
 ### 2. Aggregated Weather Data Endpoint
 
-#### `GET /api/aggregation/aggregated-data`
+#### `GET /api/aggregation`
 Fetches weather data from multiple external APIs and returns aggregated results.
 
 **Query Parameters:**
@@ -95,16 +95,16 @@ Fetches weather data from multiple external APIs and returns aggregated results.
 **Example Requests:**
 ```bash
 # Basic request
-GET /api/aggregation/aggregated-data?latitude=40.7128&longitude=-74.0060
+GET /api/aggregation?latitude=40.7128&longitude=-74.0060
 
 # With filtering (temperature > 20)
-GET /api/aggregation/aggregated-data?latitude=40.7128&longitude=-74.0060&filter=20
+GET /api/aggregation?latitude=40.7128&longitude=-74.0060&filter=20
 
 # With sorting (ascending temperature)
-GET /api/aggregation/aggregated-data?latitude=40.7128&longitude=-74.0060&sort=asc
+GET /api/aggregation?latitude=40.7128&longitude=-74.0060&sort=asc
 
 # Combined filtering and sorting
-GET /api/aggregation/aggregated-data?latitude=40.7128&longitude=-74.0060&filter=15&sort=desc
+GET /api/aggregation?latitude=40.7128&longitude=-74.0060&filter=15&sort=desc
 ```
 
 ## Input/Output Formats
@@ -317,10 +317,10 @@ The test suite includes:
 curl -X GET "https://localhost:5001/"
 
 # Test weather aggregation
-curl -X GET "https://localhost:5001/api/aggregation/aggregated-data?latitude=40.7128&longitude=-74.0060"
+curl -X GET "https://localhost:5001/api/aggregation?latitude=40.7128&longitude=-74.0060"
 
 # Test with filtering and sorting
-curl -X GET "https://localhost:5001/api/aggregation/aggregated-data?latitude=40.7128&longitude=-74.0060&filter=20&sort=asc"
+curl -X GET "https://localhost:5001/api/aggregation?latitude=40.7128&longitude=-74.0060&filter=20&sort=asc"
 ```
 
 ## Performance Considerations
