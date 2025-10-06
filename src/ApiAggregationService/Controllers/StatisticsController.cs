@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using ApiAggregationService.Interfaces;
 using ApiAggregationService.Models;
 using System.Collections.Generic;
@@ -8,6 +9,7 @@ namespace ApiAggregationService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize] // Require authentication for all endpoints
     public class StatisticsController : ControllerBase
     {
         private readonly IApiStatisticsService _statisticsService;
@@ -18,7 +20,7 @@ namespace ApiAggregationService.Controllers
         }
 
         /// <summary>
-        /// Get statistics for all APIs
+        /// Get statistics for all APIs (requires authentication)
         /// </summary>
         /// <returns>Collection of API statistics</returns>
         [HttpGet]
@@ -36,7 +38,7 @@ namespace ApiAggregationService.Controllers
         }
 
         /// <summary>
-        /// Get statistics for a specific API by name
+        /// Get statistics for a specific API by name (requires authentication)
         /// </summary>
         /// <param name="apiName">Name of the API</param>
         /// <returns>API statistics</returns>
@@ -59,10 +61,11 @@ namespace ApiAggregationService.Controllers
         }
 
         /// <summary>
-        /// Clear all statistics
+        /// Clear all statistics (requires Admin role)
         /// </summary>
         /// <returns>Success message</returns>
         [HttpDelete]
+        [Authorize(Roles = "Admin")] // Only admins can clear statistics
         public ActionResult ClearStatistics()
         {
             try

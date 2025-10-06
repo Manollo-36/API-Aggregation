@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Net.Http;
 using Newtonsoft.Json;
@@ -14,17 +15,20 @@ namespace ApiAggregationService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    // Require authentication for all endpoints
+    [Authorize]
     public class AggregationController : ControllerBase
     {
         private readonly IAggregationService _aggregationService;
         private readonly IConfiguration _configuration;
- 
+
         public AggregationController(IAggregationService aggregationService, IConfiguration configuration)
         {
             _aggregationService = aggregationService;
             _configuration = configuration;
         }
-      
+
+        /// Get aggregated weather data from multiple APIs (requires authentication)
         [HttpGet]
         public async Task<ActionResult<IEnumerable<AggregatedWeatherData>>> GetAggregatedData(
             [FromQuery] double latitude,
@@ -43,7 +47,7 @@ namespace ApiAggregationService.Controllers
                     return BadRequest(new { message = "Invalid latitude or longitude values." });
                 }
                 else
-                { 
+                {
                     // Get API keys from configuration
                     string openWeatherApiKey = _configuration["WeatherApi:OpenWeatherApiKey"];
                     string weatherStackApiKey = _configuration["WeatherApi2:WeatherStackApiKey"];
@@ -60,16 +64,16 @@ namespace ApiAggregationService.Controllers
 
                     // Build API URLs - only include APIs with valid keys
                     var apiUrls = new List<string>();
-                    
+
                     // OpenWeatherMap (requires key)
                     if (!string.IsNullOrEmpty(openWeatherApiKey))
                     {
                         apiUrls.Add($"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={openWeatherApiKey}&units=metric");
                     }
-                    
+
                     // Open-Meteo (no key required)
                     apiUrls.Add($"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current_weather=true");
-                    
+
                     // WeatherStack (requires key)
                     if (!string.IsNullOrEmpty(weatherStackApiKey))
                     {
@@ -108,7 +112,7 @@ namespace ApiAggregationService.Controllers
                     var result = await _aggregationService.GetAggregatedWeatherDataAsync(apiUrls, filterFunc, sortFunc);
 
                     return Ok(result);
-                }    
+                }
             }
             catch (HttpRequestException httpEx) when (httpEx.Message.Contains("401"))
             {
