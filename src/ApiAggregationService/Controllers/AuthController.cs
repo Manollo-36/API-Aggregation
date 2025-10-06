@@ -24,10 +24,18 @@ namespace ApiAggregationService.Controllers
         /// <returns>JWT token if authentication successful</returns>
         [HttpPost("login")]
         [AllowAnonymous]
+        [Consumes("application/json")] // Explicitly specify accepted content type
+        [Produces("application/json")]
         public ActionResult<LoginResponse> Login([FromBody] LoginRequest request)
         {
             try
             {
+                // Add validation for null request
+                if (request == null)
+                {
+                    return BadRequest(new { message = "Request body is required." });
+                }
+
                 if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
                 {
                     return BadRequest(new { message = "Username and password are required." });

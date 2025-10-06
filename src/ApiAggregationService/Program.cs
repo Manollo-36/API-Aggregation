@@ -119,15 +119,12 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "API Aggregation Service v1");
-        c.RoutePrefix = "swagger";
-    });
+    app.UseSwaggerUI();
+    
+    // In development, you might want to disable HTTPS redirection
+    // app.UseHttpsRedirection();
 }
-
-// Only use HTTPS redirection in production
-if (!app.Environment.IsDevelopment())
+else
 {
     app.UseHttpsRedirection();
 }
@@ -141,6 +138,10 @@ app.MapControllers();
 // Add a simple home endpoint (no authentication required)
 app.MapGet("/", () => "API Aggregation Service is running. Use /api/auth/login to authenticate, then access /api/aggregation for data.")
     .WithTags("Health");
+
+// Explicitly specify the URLs to listen on
+app.Urls.Add("http://localhost:5000");
+app.Urls.Add("https://localhost:5001");
 
 app.Run();
 
