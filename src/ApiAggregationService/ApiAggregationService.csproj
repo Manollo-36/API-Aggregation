@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>ApiAggregationService</RootNamespace>
     <AssemblyName>ApiAggregationService</AssemblyName>
     <PreserveCompilationContext>true</PreserveCompilationContext>
+    <UserSecretsId>b17f53eb-782d-40fe-8478-1499f510bdee</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
